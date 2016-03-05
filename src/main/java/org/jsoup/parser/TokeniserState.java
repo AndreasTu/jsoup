@@ -1,5 +1,7 @@
 package org.jsoup.parser;
 
+import org.jsoup.parser.Token.Tag;
+
 import java.util.Arrays;
 
 /**
@@ -151,7 +153,8 @@ enum TokeniserState {
                     break;
                 default:
                     if (r.matchesLetter()) {
-                        t.createTagPending(true);
+                        Tag tag = t.createTagPending(true);
+                        tag.setPosition(r.pos()-1);
                         t.transition(TagName);
                     } else {
                         t.error(this);
@@ -955,7 +958,8 @@ enum TokeniserState {
     MarkupDeclarationOpen {
         void read(Tokeniser t, CharacterReader r) {
             if (r.matchConsume("--")) {
-                t.createCommentPending();
+                Token comment = t.createCommentPending();
+                comment.setPosition(r.pos()-4);
                 t.transition(CommentStart);
             } else if (r.matchConsumeIgnoreCase("DOCTYPE")) {
                 t.transition(Doctype);

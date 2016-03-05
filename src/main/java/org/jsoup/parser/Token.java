@@ -10,6 +10,7 @@ import org.jsoup.nodes.BooleanAttribute;
  */
 abstract class Token {
     TokenType type;
+    private int pos;
 
     private Token() {
     }
@@ -17,6 +18,15 @@ abstract class Token {
     String tokenType() {
         return this.getClass().getSimpleName();
     }
+    
+    public int getPosition() {
+        return pos;
+    }
+    
+    public void setPosition(int pos){
+        this.pos = pos;
+    }
+    
 
     /**
      * Reset the data represent by this token, for reuse. Prevents the need to create transfer objects for every
@@ -334,4 +344,6 @@ abstract class Token {
         Character,
         EOF
     }
+
+   
 }

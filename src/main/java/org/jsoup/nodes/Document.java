@@ -8,7 +8,10 @@ import org.jsoup.select.Elements;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  A HTML Document.
@@ -561,5 +564,27 @@ public class Document extends Element {
     public Document quirksMode(QuirksMode quirksMode) {
         this.quirksMode = quirksMode;
         return this;
+    }
+    
+    private  Map<Node, Integer> positionMap;
+
+    public void addPositionInfo(Node node, int position) {
+        if(positionMap == null){
+            positionMap = new IdentityHashMap<Node, Integer>();
+        }
+     
+        Integer integer = positionMap.put(node,Integer.valueOf(position));
+        if(integer!= null){
+            throw new IllegalStateException();
+        }
+        
+    }
+    
+    
+    public Integer getPosition(Node node){
+        if(positionMap == null){
+            return null;
+        }
+        return positionMap.get(node);
     }
 }

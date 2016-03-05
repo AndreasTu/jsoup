@@ -197,8 +197,9 @@ final class Tokeniser {
         emit(tagPending);
     }
 
-    void createCommentPending() {
+    Token.Comment createCommentPending() {
         commentPending.reset();
+        return commentPending;
     }
 
     void emitCommentPending() {

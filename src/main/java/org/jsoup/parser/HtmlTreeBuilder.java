@@ -180,25 +180,25 @@ public class HtmlTreeBuilder extends TreeBuilder {
         }
         
         Element el = new Element(Tag.valueOf(startTag.name()), baseUri, startTag.attributes);
-        insert(el);
+        insert(el, startTag);
         return el;
     }
 
     Element insertStartTag(String startTagName) {
         Element el = new Element(Tag.valueOf(startTagName), baseUri);
-        insert(el);
+        insert(el, null);
         return el;
     }
 
-    void insert(Element el) {
-        insertNode(el);
+    void insert(Element el, Token token) {
+        insertNode(el, token);
         stack.add(el);
     }
 
     Element insertEmpty(Token.StartTag startTag) {
         Tag tag = Tag.valueOf(startTag.name());
         Element el = new Element(tag, baseUri, startTag.attributes);
-        insertNode(el);
+        insertNode(el, startTag);
         if (startTag.isSelfClosing()) {
             if (tag.isKnownTag()) {
                 if (tag.isSelfClosing()) tokeniser.acknowledgeSelfClosingFlag(); // if not acked, promulagates error
@@ -215,7 +215,7 @@ public class HtmlTreeBuilder extends TreeBuilder {
         Tag tag = Tag.valueOf(startTag.name());
         FormElement el = new FormElement(tag, baseUri, startTag.attributes);
         setFormElement(el);
-        insertNode(el);
+        insertNode(el, startTag);
         if (onStack)
             stack.add(el);
         return el;
@@ -223,7 +223,7 @@ public class HtmlTreeBuilder extends TreeBuilder {
 
     void insert(Token.Comment commentToken) {
         Comment comment = new Comment(commentToken.getData(), baseUri);
-        insertNode(comment);
+        insertNode(comment, commentToken);
     }
 
     void insert(Token.Character characterToken) {
@@ -237,7 +237,10 @@ public class HtmlTreeBuilder extends TreeBuilder {
         currentElement().appendChild(node); // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
 
-    private void insertNode(Node node) {
+    private void insertNode(Node node, Token token) {
+        if(token!= null){
+            doc.addPositionInfo(node, token.getPosition());
+        }
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
         if (stack.size() == 0)
             doc.appendChild(node);
