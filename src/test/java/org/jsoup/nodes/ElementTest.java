@@ -21,7 +21,7 @@ import java.util.Map;
  * @author Jonathan Hedley
  */
 public class ElementTest {
-    private String reference = "<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div><!--Comment-->";
+    private String reference = "<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>";
 
     @Test public void getElementsByTagName() {
         Document doc = Jsoup.parse(reference);

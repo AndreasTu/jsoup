@@ -1,7 +1,6 @@
 package org.jsoup.parser;
 
 import org.jsoup.parser.Token.Tag;
-
 import java.util.Arrays;
 
 /**
