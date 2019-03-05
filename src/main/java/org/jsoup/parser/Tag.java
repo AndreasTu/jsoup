@@ -1,6 +1,7 @@
 package org.jsoup.parser;
 
 import org.jsoup.helper.Validate;
+import org.jsoup.internal.Normalizer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,12 +12,12 @@ import java.util.Map;
  * @author Jonathan Hedley, jonathan@hedley.net
  */
 public class Tag {
-    private static final Map<String, Tag> tags = new HashMap<String, Tag>(); // map of known tags
+    private static final Map<String, Tag> tags = new HashMap<>(); // map of known tags
 
     private String tagName;
+    private String normalName; // always the lower case version of this tag, regardless of case preservation mode
     private boolean isBlock = true; // block or inline
     private boolean formatAsBlock = true; // should be formatted as a block
-    private boolean canContainBlock = true; // Can this tag hold block level tags?
     private boolean canContainInline = true; // only pcdata if not
     private boolean empty = false; // can hold nothing; e.g. img
     private boolean selfClosing = false; // can self close (<foo />). used for unknown tags that self close, without forcing them as empty.
@@ -25,7 +26,8 @@ public class Tag {
     private boolean formSubmit = false; // a control that can be submitted in a form: input etc
 
     private Tag(String tagName) {
-        this.tagName = tagName.toLowerCase();
+        this.tagName = tagName;
+        normalName = Normalizer.lowerCase(tagName);
     }
 
     /**
@@ -38,20 +40,29 @@ public class Tag {
     }
 
     /**
+     * Get this tag's normalized (lowercased) name.
+     * @return the tag's normal name.
+     */
+    public String normalName() {
+        return normalName;
+    }
+
+    /**
      * Get a Tag by name. If not previously defined (unknown), returns a new generic tag, that can do anything.
      * <p>
      * Pre-defined tags (P, DIV etc) will be ==, but unknown tags are not registered and will only .equals().
      * </p>
      * 
      * @param tagName Name of tag, e.g. "p". Case insensitive.
+     * @param settings used to control tag name sensitivity
      * @return The tag, either defined or new generic.
      */
-    public static Tag valueOf(String tagName) {
+    public static Tag valueOf(String tagName, ParseSettings settings) {
         Validate.notNull(tagName);
         Tag tag = tags.get(tagName);
 
         if (tag == null) {
-            tagName = tagName.trim().toLowerCase();
+            tagName = settings.normalizeTag(tagName);
             Validate.notEmpty(tagName);
             tag = tags.get(tagName);
 
@@ -59,10 +70,22 @@ public class Tag {
                 // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
                 tag = new Tag(tagName);
                 tag.isBlock = false;
-                tag.canContainBlock = true;
             }
         }
         return tag;
+    }
+
+    /**
+     * Get a Tag by name. If not previously defined (unknown), returns a new generic tag, that can do anything.
+     * <p>
+     * Pre-defined tags (P, DIV etc) will be ==, but unknown tags are not registered and will only .equals().
+     * </p>
+     *
+     * @param tagName Name of tag, e.g. "p". <b>Case sensitive</b>.
+     * @return The tag, either defined or new generic.
+     */
+    public static Tag valueOf(String tagName) {
+        return valueOf(tagName, ParseSettings.preserveCase);
     }
 
     /**
@@ -87,9 +110,10 @@ public class Tag {
      * Gets if this tag can contain block tags.
      *
      * @return if tag can contain block tags
+     * @deprecated No longer used, and no different result than {{@link #isBlock()}}
      */
     public boolean canContainBlock() {
-        return canContainBlock;
+        return isBlock;
     }
 
     /**
@@ -150,7 +174,7 @@ public class Tag {
     /**
      * Get if this tag should preserve whitespace within child text nodes.
      *
-     * @return if preserve whitepace
+     * @return if preserve whitespace
      */
     public boolean preserveWhitespace() {
         return preserveWhitespace;
@@ -185,7 +209,6 @@ public class Tag {
         Tag tag = (Tag) o;
 
         if (!tagName.equals(tag.tagName)) return false;
-        if (canContainBlock != tag.canContainBlock) return false;
         if (canContainInline != tag.canContainInline) return false;
         if (empty != tag.empty) return false;
         if (formatAsBlock != tag.formatAsBlock) return false;
@@ -201,7 +224,6 @@ public class Tag {
         int result = tagName.hashCode();
         result = 31 * result + (isBlock ? 1 : 0);
         result = 31 * result + (formatAsBlock ? 1 : 0);
-        result = 31 * result + (canContainBlock ? 1 : 0);
         result = 31 * result + (canContainInline ? 1 : 0);
         result = 31 * result + (empty ? 1 : 0);
         result = 31 * result + (selfClosing ? 1 : 0);
@@ -222,9 +244,9 @@ public class Tag {
             "html", "head", "body", "frameset", "script", "noscript", "style", "meta", "link", "title", "frame",
             "noframes", "section", "nav", "aside", "hgroup", "header", "footer", "p", "h1", "h2", "h3", "h4", "h5", "h6",
             "ul", "ol", "pre", "div", "blockquote", "hr", "address", "figure", "figcaption", "form", "fieldset", "ins",
-            "del", "s", "dl", "dt", "dd", "li", "table", "caption", "thead", "tfoot", "tbody", "colgroup", "col", "tr", "th",
+            "del", "dl", "dt", "dd", "li", "table", "caption", "thead", "tfoot", "tbody", "colgroup", "col", "tr", "th",
             "td", "video", "audio", "canvas", "details", "menu", "plaintext", "template", "article", "main",
-            "svg", "math"
+            "svg", "math", "center"
     };
     private static final String[] inlineTags = {
             "object", "base", "font", "tt", "i", "b", "u", "big", "small", "em", "strong", "dfn", "code", "samp", "kbd",
@@ -232,7 +254,7 @@ public class Tag {
             "sub", "sup", "bdo", "iframe", "embed", "span", "input", "select", "textarea", "label", "button", "optgroup",
             "option", "legend", "datalist", "keygen", "output", "progress", "meter", "area", "param", "source", "track",
             "summary", "command", "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track",
-            "data", "bdi"
+            "data", "bdi", "s"
     };
     private static final String[] emptyTags = {
             "meta", "link", "base", "frame", "img", "br", "wbr", "embed", "hr", "input", "keygen", "col", "command",
@@ -263,7 +285,6 @@ public class Tag {
         for (String tagName : inlineTags) {
             Tag tag = new Tag(tagName);
             tag.isBlock = false;
-            tag.canContainBlock = false;
             tag.formatAsBlock = false;
             register(tag);
         }
@@ -272,7 +293,6 @@ public class Tag {
         for (String tagName : emptyTags) {
             Tag tag = tags.get(tagName);
             Validate.notNull(tag);
-            tag.canContainBlock = false;
             tag.canContainInline = false;
             tag.empty = true;
         }

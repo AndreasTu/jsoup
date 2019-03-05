@@ -1,17 +1,27 @@
 package org.jsoup.nodes;
 
+import org.jsoup.Jsoup;
+import org.jsoup.TextUtil;
+import org.jsoup.integration.ParseTest;
+import org.jsoup.nodes.Document.OutputSettings;
+import org.jsoup.nodes.Document.OutputSettings.Syntax;
+import org.jsoup.select.Elements;
+import org.junit.Ignore;
+import org.junit.Test;
+
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.nio.charset.Charset;
-import org.jsoup.Jsoup;
-import org.jsoup.TextUtil;
-import org.jsoup.integration.ParseTest;
-import org.jsoup.nodes.Document.OutputSettings.Syntax;
-import static org.junit.Assert.*;
-import org.junit.Ignore;
-import org.junit.Test;
+import java.nio.charset.StandardCharsets;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  Tests for Document.
@@ -137,6 +147,16 @@ public class DocumentTest {
         Document doc = Jsoup.parse("x");
         assertEquals(Syntax.html, doc.outputSettings().syntax());
     }
+    
+    @Test public void testHtmlAppendable() {
+    	String htmlContent = "<html><head><title>Hello</title></head><body><p>One</p><p>Two</p></body></html>";
+    	Document document = Jsoup.parse(htmlContent);
+    	OutputSettings outputSettings = new OutputSettings();
+    	
+    	outputSettings.prettyPrint(false);
+    	document.outputSettings(outputSettings);
+    	assertEquals(htmlContent, document.html(new StringWriter()).toString());
+    }
 
     // Ignored since this test can take awhile to run.
     @Ignore
@@ -156,10 +176,19 @@ public class DocumentTest {
         Document docB = Jsoup.parse("<div/>One");
         Document docC = Jsoup.parse("<div/>Two");
 
-        assertEquals(docA, docB);
-        assertFalse(docA.equals(docC));
-        assertEquals(docA.hashCode(), docB.hashCode());
+        assertFalse(docA.equals(docB));
+        assertTrue(docA.equals(docA));
+        assertEquals(docA.hashCode(), docA.hashCode());
         assertFalse(docA.hashCode() == docC.hashCode());
+    }
+
+    @Test public void DocumentsWithSameContentAreVerifialbe() throws Exception {
+        Document docA = Jsoup.parse("<div/>One");
+        Document docB = Jsoup.parse("<div/>One");
+        Document docC = Jsoup.parse("<div/>Two");
+
+        assertTrue(docA.hasSameValue(docB));
+        assertFalse(docA.hasSameValue(docC));
     }
     
     @Test
@@ -285,7 +314,7 @@ public class DocumentTest {
         doc.updateMetaCharsetElement(true);
         doc.charset(Charset.forName(charsetUtf8));
         
-        final String xmlCharsetUTF8 = "<?xml version=\"1.0\" encoding=\"" + charsetUtf8 + "\">\n" +
+        final String xmlCharsetUTF8 = "<?xml version=\"1.0\" encoding=\"" + charsetUtf8 + "\"?>\n" +
                                         "<root>\n" +
                                         " node\n" +
                                         "</root>";
@@ -303,7 +332,7 @@ public class DocumentTest {
         doc.updateMetaCharsetElement(true);
         doc.charset(Charset.forName(charsetIso8859));
         
-        final String xmlCharsetISO = "<?xml version=\"1.0\" encoding=\"" + charsetIso8859 + "\">\n" +
+        final String xmlCharsetISO = "<?xml version=\"1.0\" encoding=\"" + charsetIso8859 + "\"?>\n" +
                                         "<root>\n" +
                                         " node\n" +
                                         "</root>";
@@ -321,7 +350,7 @@ public class DocumentTest {
         doc.updateMetaCharsetElement(true);
         doc.charset(Charset.forName(charsetUtf8));
         
-        final String xmlCharsetUTF8 = "<?xml version=\"1.0\" encoding=\"" + charsetUtf8 + "\">\n" +
+        final String xmlCharsetUTF8 = "<?xml version=\"1.0\" encoding=\"" + charsetUtf8 + "\"?>\n" +
                                         "<root>\n" +
                                         " node\n" +
                                         "</root>";
@@ -345,7 +374,7 @@ public class DocumentTest {
     public void testMetaCharsetUpdateXmlDisabledNoChanges() {
         final Document doc = createXmlDocument("dontTouch", "dontTouch", true);
         
-        final String xmlCharset = "<?xml version=\"dontTouch\" encoding=\"dontTouch\">\n" +
+        final String xmlCharset = "<?xml version=\"dontTouch\" encoding=\"dontTouch\"?>\n" +
                                     "<root>\n" +
                                     " node\n" +
                                     "</root>";
@@ -375,8 +404,8 @@ public class DocumentTest {
         doc.appendElement("root").text("node");
         doc.outputSettings().syntax(Syntax.xml);
         
-        if( addDecl == true ) {
-            XmlDeclaration decl = new XmlDeclaration("xml", "", false);
+        if(addDecl) {
+            XmlDeclaration decl = new XmlDeclaration("xml", false);
             decl.attr("version", version);
             decl.attr("encoding", charset);
             doc.prependChild(decl);
@@ -406,5 +435,29 @@ public class DocumentTest {
         assertFalse("Should not have contained a '?'.", output.contains("?"));
         assertTrue("Should have contained a '&#xa0;' or a '&nbsp;'.",
                 output.contains("&#xa0;") || output.contains("&nbsp;"));
+    }
+
+    @Test public void parseAndHtmlOnDifferentThreads() throws InterruptedException {
+        String html = "<p>Alrighty then it's not \uD83D\uDCA9. <span>Next</span></p>"; // 💩
+        String asci = "<p>Alrighty then it's not &#x1f4a9;. <span>Next</span></p>";
+
+        final Document doc = Jsoup.parse(html);
+        final String[] out = new String[1];
+        final Elements p = doc.select("p");
+        assertEquals(html, p.outerHtml());
+
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                out[0] = p.outerHtml();
+                doc.outputSettings().charset(StandardCharsets.US_ASCII);
+            }
+        });
+        thread.start();
+        thread.join();
+
+        assertEquals(html, out[0]);
+        assertEquals(StandardCharsets.US_ASCII, doc.outputSettings().charset());
+        assertEquals(asci, p.outerHtml());
     }
 }
